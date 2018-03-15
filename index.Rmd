@@ -10,13 +10,9 @@ runtime: shiny
 ---
 
 ```{r setup, warning=FALSE}
-
-library(shiny)
-library(knitr)
-library(treemap)
-
-library(rbcb)
 library(coinmarketcapr)
+library(rbcb)
+library(treemap)
 
 # disable scientific notation and show only 3 digits
 options(scipen=999, digits = 3)
