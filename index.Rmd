@@ -1,0 +1,114 @@
+---
+title: "Cryptocurrency Market Capitalization"
+output:
+  html_notebook:
+    code_folding: hide
+    theme: spacelab
+    includes:
+      in_header: google-analytics.js
+runtime: shiny
+---
+
+```{r setup, warning=FALSE}
+
+library(shiny)
+library(knitr)
+library(treemap)
+
+library(rbcb)
+library(coinmarketcapr)
+
+# disable scientific notation and show only 3 digits
+options(scipen=999, digits = 3)
+
+getCurrencies <- reactive({
+  
+  currencies <- tryCatch({
+    get_all_currencies(Sys.Date())
+  }, error = function(e) {
+    get_all_currencies(Sys.Date() - 1)
+  })
+  
+  currencies <- currencies[currencies$symbol %in%
+                             c("ARS", "USD", "EUR", "GBP"),]
+  
+  return (currencies[,c("symbol", "bid", "ask")])
+  
+})
+
+getCryptoMarketToday <- reactive({
+  
+  market_today <- get_marketcap_ticker_all()
+  
+  return (market_today)
+})
+
+```
+
+## Currencies
+
+The following table summarizes **market value** of the main currencies, compared to the Brazillian Real (BRL), according to data extracted from the Brazillian Central Bank. The bid-ask spread is the amount by which the ask price exceeds the bid price for the currency in the Brazillian market.
+
+```{r, warning=FALSE}
+
+renderDataTable({
+  
+  currencies <- getCurrencies()
+  
+  colnames(currencies) <- c("Symbol", "Bid", "Ask")
+  
+  return (currencies)
+  
+}, options = list(searching = FALSE,
+                  paging = FALSE)
+)
+
+```
+
+## Cryptocurrencies
+
+The following table summarizes the top 10 cryptocurrencies by market capitalization, according to CoinMarketCap. The tree map shows a nice visualization of this capitalization.
+
+```{r, warning=FALSE}
+
+renderDataTable({
+  
+  currencies <- getCurrencies()
+  
+  usd <- as.numeric(currencies[currencies$symbol == "USD",c("bid")])
+  
+  market_today <- getCryptoMarketToday()
+  
+  market_today$price_usd <- as.numeric(market_today$price_usd)
+  market_today$price_brl <- market_today$price_usd * usd
+
+  market_today <- market_today[,c("name", "symbol", "rank", "price_usd", "price_brl")]
+  colnames(market_today) <- c("Name", "Symbol", "Rank", "USD", "BRL")
+
+  return (head(market_today, 10))
+
+}, options = list(searching = FALSE,
+                  paging = FALSE)
+)
+
+```
+
+```{r, warning=FALSE}
+renderPlot({
+  
+  market_today <- getCryptoMarketToday()
+  
+  df1 <- na.omit(market_today[,c('symbol','market_cap_usd')])
+  
+  df1$market_cap_usd <- as.numeric(df1$market_cap_usd)
+  
+  df1$formatted_market_cap <- paste0(df1$symbol,'\n','$',
+                                     format(df1$market_cap_usd,big.mark = ',',
+                                            scientific = F, trim = T))
+  treemap(df1, index = 'formatted_market_cap',
+          vSize = 'market_cap_usd',
+          title = 'Cryptocurrency Market Cap',
+          fontsize.labels=c(12, 8), palette='RdYlGn')
+})
+
+```
